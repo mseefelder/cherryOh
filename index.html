@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+
+<html>
+
+  <head>
+
+    <title>My first Three.js app</title>
+
+    <style>
+      body { margin: 0; }
+      canvas { width: 100%; height: 100% }
+    </style>
+
+  </head>
+
+  <body>
+
+    <script src="js/three.min.js"></script>
+    <script src="js/EffectComposer.js"></script>
+    <script src="js/CopyShader.js"></script>
+    <script src="js/ShaderPass.js"></script>
+    <script src="js/RenderPass.js"></script>
+    <script src="js/MaskPass.js"></script>
+    
+    <script type="x-shader/x-vertex" id="vertexShader">
+
+      void main() {
+      gl_Position = projectionMatrix *
+                    modelViewMatrix *
+                    vec4(position,1.0);
+      }
+    </script>
+
+    <script type="x-shader/x-fragment" id="fragmentShader">
+      uniform vec3 color;
+
+      float rand(vec2 co){
+      return fract(sin(dot(co.xy ,vec2(12.9898,78.233))) * 43758.5453);
+      }
+
+      void main() {
+      gl_FragColor = vec4(rand(gl_FragCoord.xy)*color.r,  // R
+                          rand(gl_FragCoord.xy)*color.g,  // G
+                          rand(gl_FragCoord.xy)*color.b,  // B
+                          1.0); // A
+      } 
+    </script>
+
+    <script>
+      var scene = new THREE.Scene();
+      var camera = new THREE.PerspectiveCamera( 75, window.innerWidth/window.innerHeight, 0.1, 1000 );
+
+      var renderer = new THREE.WebGLRenderer();
+      renderer.setSize( window.innerWidth, window.innerHeight );
+      //renderer.setClearColor(0x0000ff, 1);
+      document.body.appendChild( renderer.domElement );
+
+      var vShader = document.getElementById('vertexShader').text;
+      var fShader = document.getElementById('fragmentShader').text;
+      var material =
+      new THREE.ShaderMaterial({
+        uniforms: {
+          color: {type: "c", value: new THREE.Color(0xff0000)}
+        },
+        vertexShader:   vShader,
+        fragmentShader: fShader
+      });
+
+      var geometry = new THREE.BoxGeometry( 1, 1, 1 );
+      //var material = new THREE.MeshBasicMaterial( { color: 0x00ff00 } );
+      var cube = new THREE.Mesh( geometry, material );
+      scene.add( cube );
+
+      var geometryPlane = new THREE.PlaneGeometry(10,10);
+      var materialBlue = material.clone();
+      materialBlue.uniforms = {color: {type: "c", value: new THREE.Color(0x0000ff)}};
+      //new THREE.ShaderMaterial({
+      //  uniforms: {
+      //    color: {type: "c", value: new THREE.Color(0xff0000)}
+      //  },
+      //  vertexShader:   vShader,
+      //  fragmentShader: fShader
+      //});
+      var plane = new THREE.Mesh( geometryPlane, materialBlue );
+      scene.add( plane );
+      plane.position.z=-1;
+
+      camera.position.z = 5;
+
+      //post-processing
+      var composer = new THREE.EffectComposer(renderer);
+      composer.addPass( new THREE.RenderPass(scene, camera) );
+
+      var render = function () {
+        requestAnimationFrame( render );
+
+        cube.rotation.x += 0.1;
+        cube.rotation.y += 0.1;
+
+        renderer.render(scene, camera);
+        //composer.render();
+      };
+
+      render();
+    </script>
+
+  </body>
+
+</html>
+
+<!-- 
+http://www.instructables.com/id/Instructables-Universe-in-Threejs/step12/Threejs-Post-processing-Effects-Dimming-Blurring/
+
+http://threejs.org/examples/#webgl_postprocessing
+
+http://learningthreejs.com/blog/2014/04/24/crazy-post-processing-color-effects-to-change-your-game-ambiance-with-threex-dot-coloradjust-game-extension-for-three-dot-js/
+ -->
