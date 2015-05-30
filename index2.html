@@ -25,7 +25,7 @@
 		<script src="js/postprocessing/MaskPass.js"></script>
 		<script src="js/postprocessing/ShaderPass.js"></script>
 
-    <script type="x-shader/x-vertex" id="vertexShader">
+    <script type="x-shader/x-vertex" id="vertexShadeless">
 
       void main() {
       gl_Position = projectionMatrix *
@@ -34,12 +34,8 @@
       }
     </script>
 
-    <script type="x-shader/x-fragment" id="fragmentShader">
+    <script type="x-shader/x-fragment" id="fragmentShadeless">
       uniform vec3 color;
-
-      float rand(vec2 co){
-      return fract(sin(dot(co.xy ,vec2(12.9898,78.233))) * 43758.5453);
-      }
 
       void main() {
       gl_FragColor = vec4(color.r,  // R
@@ -47,6 +43,64 @@
                           color.b,  // B
                           1.0); // A
       }
+    </script>
+
+    <script type="x-shader/x-vertex" id="vertexChromo">
+      varying vec2 vUv;
+
+      void main() {
+      vUv = uv;
+      gl_Position = projectionMatrix *
+                    modelViewMatrix *
+                    vec4(position,1.0);
+      }
+    </script>
+
+    <script type="x-shader/x-fragment" id="fragmentChromo">
+    uniform sampler2D tDiffuse;
+    uniform float amount;
+    uniform float angle;
+
+    varying vec2 vUv;
+
+    float rand(vec2 co){
+    return fract(sin(dot(co.xy ,vec2(12.9898,78.233))) * 43758.5453);
+    }
+
+    void main() {
+
+      float dist = 0.01;
+      vec4 finalPixel = texture2D(tDiffuse, vUv);
+
+      vec4 me = vec4(0.0);// texture2D(tDiffuse, vUv);
+      me += texture2D(tDiffuse, vUv+vec2(dist,0));
+      me -= texture2D(tDiffuse, vUv-vec2(dist,0));
+      me += texture2D(tDiffuse, vUv+vec2(0,dist));
+      me -= texture2D(tDiffuse, vUv-vec2(0,dist));
+
+      me += texture2D(tDiffuse, vUv+vec2(dist,dist));
+      me -= texture2D(tDiffuse, vUv-vec2(dist,dist));
+      me += texture2D(tDiffuse, vUv+vec2(dist,-dist));
+      me -= texture2D(tDiffuse, vUv+vec2(-dist,dist));
+
+      float multiplier = 1.0;
+      if (me != vec4(0.0))
+      {
+        multiplier = 0.0;
+      }
+
+      if (finalPixel.rgb == vec3(0.0,0.0,1.0))
+      {
+        finalPixel.rgb = finalPixel.rgb*rand(vUv);
+      }
+
+      vec2 offset = amount * vec2( cos(angle), sin(angle));
+      vec4 cr = texture2D(tDiffuse, vUv + offset);
+      vec4 cga = texture2D(tDiffuse, vUv);
+      vec4 cb = texture2D(tDiffuse, vUv - offset);
+      //gl_FragColor = multiplier*vec4(cr.r, cga.g, cb.b, cga.a);
+      gl_FragColor = vec4(multiplier*finalPixel.rgb, 1.0);
+    }
     </script>
 
     <script>
@@ -80,8 +134,8 @@
       var geometryCube = new THREE.BoxGeometry( 1, 1, 1 );
 
       //make cube material
-      var vShader = document.getElementById('vertexShader').text;
-      var fShader = document.getElementById('fragmentShader').text;
+      var vShader = document.getElementById('vertexShadeless').text;
+      var fShader = document.getElementById('fragmentShadeless').text;
       var material =
       new THREE.ShaderMaterial({
         uniforms: {
@@ -108,10 +162,27 @@
 
       // postprocessing
 
+      //scene composer
       composer = new THREE.EffectComposer( renderer );
+
+      //Render scene
       composer.addPass( new THREE.RenderPass( scene, camera ) );
 
-      var effect = new THREE.ShaderPass( THREE.Chromo );//RGB shift shader
+      //create next shader
+      var vChromo = document.getElementById('vertexChromo').text;
+      var fChromo = document.getElementById('fragmentChromo').text;
+      ChromoShader = {
+        uniforms:{
+          "tDiffuse": { type: "t", value: null },
+    		  "amount":   { type: "f", value: 0.005 },
+    		  "angle":    { type: "f", value: 0.0 }
+        },
+        vertexShader:vChromo,
+        fragmentShader:fChromo
+      };
+
+      //render effect
+      var effect = new THREE.ShaderPass( ChromoShader );//RGB shift shader
       effect.uniforms[ 'amount' ].value = 0.0015;
       effect.renderToScreen = true;
       composer.addPass( effect );
